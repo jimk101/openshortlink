@@ -1,0 +1,62 @@
+/**
+ * Copyright (c) 2025 OpenShort.link Contributors
+ * 
+ * Licensed under the Common Public Attribution License Version 1.0 (CPAL-1.0)
+ * See LICENSE file or https://opensource.org/license/cpal-1-0
+ */
+
+// Error handling middleware
+
+import type { Context } from 'hono';
+import { HTTPException } from 'hono/http-exception';
+import { ZodError } from 'zod';
+
+export function errorHandler(error: Error, c: Context) {
+  console.error('Error:', error);
+
+  if (error instanceof HTTPException) {
+    return c.json(
+      {
+        success: false,
+        error: {
+          code: error.status === 404 ? 'NOT_FOUND' : 'HTTP_ERROR',
+          message: error.message,
+          details: {},
+        },
+      },
+      error.status
+    );
+  }
+
+  // Handle Zod validation errors
+  if (error instanceof ZodError) {
+    return c.json(
+      {
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid request data',
+          details: error.issues.map((e: any) => ({
+            path: e.path.join('.'),
+            message: e.message,
+            code: e.code,
+          })),
+        },
+      },
+      400
+    );
+  }
+
+  return c.json(
+    {
+      success: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: 'An internal error occurred',
+        details: {},
+      },
+    },
+    500
+  );
+}
+
